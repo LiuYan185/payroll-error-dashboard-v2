@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026年全球薪酬核算差错统计看板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #f0f4f8;
+    color: #1e293b;
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+    color: #fff;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 12px rgba(30,64,175,0.15);
+  }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: 1px; }
+  .header .subtitle { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+  .header-btns { display: flex; gap: 10px; }
+  .header-btns button {
+    padding: 8px 18px;
+    border: 1.5px solid rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(4px);
+  }
+  .header-btns button:hover { background: rgba(255,255,255,0.3); border-color: #fff; }
+
+  .container { max-width: 1440px; margin: 0 auto; padding: 12px 20px; }
+
+  /* KPI Cards */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .kpi-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-left: 4px solid #3b82f6;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .kpi-card.accent-green { border-left-color: #22c55e; }
+  .kpi-card.accent-amber { border-left-color: #f59e0b; }
+  .kpi-card.accent-red { border-left-color: #ef4444; }
+  .kpi-card .label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+  .kpi-card .value { font-size: 24px; font-weight: 700; color: #1e293b; }
+  .kpi-card .value.green { color: #16a34a; }
+  .kpi-card .value.red { color: #dc2626; }
+  .kpi-card .value.amber { color: #d97706; }
+  .kpi-card .unit { font-size: 12px; font-weight: 400; color: #64748b; margin-left: 2px; }
+  .kpi-card .trend { font-size: 10px; margin-top: 2px; color: #64748b; }
+  .kpi-card .trend.down { color: #16a34a; }
+  .kpi-card .trend.up { color: #dc2626; }
+
+  /* Decision Summary */
+  .summary-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    margin-bottom: 10px;
+    border-left: 4px solid #f59e0b;
+  }
+  .summary-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 8px;
+    padding-left: 10px;
+    border-left: 3px solid #f59e0b;
+  }
+  .summary-list { list-style: none; padding: 0; }
+  .summary-list li {
+    font-size: 12px;
+    line-height: 1.9;
+    color: #334155;
+    padding-left: 16px;
+    position: relative;
+    margin-bottom: 3px;
+  }
+  .summary-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3b82f6;
+  }
+  .summary-list li.warn::before { background: #ef4444; }
+  .summary-list li.good::before { background: #22c55e; }
+  .summary-list li .hl-red { color: #dc2626; font-weight: 600; }
+  .summary-list li .hl-green { color: #16a34a; font-weight: 600; }
+
+  /* Chart Layout */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .chart-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid #3b82f6;
+  }
+
+  /* Table */
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead th {
+    background: #eff6ff;
+    color: #1e40af;
+    font-weight: 600;
+    padding: 8px 10px;
+    text-align: center;
+    white-space: nowrap;
+    border-bottom: 2px solid #bfdbfe;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: 11px;
+  }
+  tbody td {
+    padding: 6px 10px;
+    text-align: center;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  tbody tr:hover { background: #f8fafc; }
+  tbody tr.subtotal td { background: #f0f7ff; font-weight: 600; }
+  tbody tr.total td { background: #dbeafe; font-weight: 700; color: #1e40af; }
+  .bu-cell {
+    font-weight: 600;
+    text-align: left !important;
+    padding-left: 12px !important;
+  }
+  .role-cell { text-align: left !important; padding-left: 20px !important; }
+  .err-highlight { color: #dc2626; font-weight: 600; }
+  .rate-good { color: #16a34a; }
+  .rate-warn { color: #d97706; }
+  .rate-bad { color: #dc2626; }
+
+  /* Main Tabs */
+  .tab-hint {
+    text-align: center;
+    padding: 7px 0;
+    margin-bottom: 0;
+    background: #dbeafe;
+    border-radius: 8px 8px 0 0;
+    color: #1e40af;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid #93c5fd;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+    background: #fff;
+    padding: 4px;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    justify-content: space-evenly;
+  }
+  .tab-btn {
+    padding: 7px 20px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    text-align: center;
+  }
+  .tab-btn:hover { background: #f1f5f9; color: #334155; }
+  .tab-btn.active { background: #3b82f6; color: #fff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Sub Tabs (Single BU / Multi BU) */
+  .sub-tabs {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 12px;
+    background: #f1f5f9;
+    padding: 4px;
+    border-radius: 8px;
+    width: fit-content;
+  }
+  .sub-tab-btn {
+    padding: 5px 14px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .sub-tab-btn:hover { background: #e2e8f0; color: #334155; }
+  .sub-tab-btn.active { background: #fff; color: #1e40af; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-weight: 600; }
+
+  /* Mode toggle (单BU详情 / 多BU对比) */
+  .mode-toggle {
+    display: inline-flex;
+    gap: 0;
+    margin-bottom: 10px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .mode-btn {
+    padding: 5px 16px;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mode-btn:hover { color: #334155; }
+  .mode-btn.active { background: #3b82f6; color: #fff; }
+
+  /* BU Selector for Multi-BU mode */
+  .bu-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  .bu-selector label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #475569;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .bu-selector label:hover { background: #e2e8f0; }
+  .bu-selector label input[type="checkbox"] {
+    accent-color: #3b82f6;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+  .bu-selector .selector-btns {
+    display: flex;
+    gap: 6px;
+    margin-left: 8px;
+  }
+  .bu-selector .selector-btns button {
+    padding: 3px 10px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bu-selector .selector-btns button:hover { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+  .bu-sub-panel { display: none; }
+  .bu-sub-panel.active { display: block; }
+
+  .role-detail-row { display: none; }
+  .role-detail-row.expanded { display: table-row; }
+  .expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    margin-bottom: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .expand-btn:hover { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+  .expand-btn .arrow { transition: transform 0.2s; display: inline-block; font-size: 10px; }
+  .expand-btn.expanded .arrow { transform: rotate(90deg); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 12px;
+    color: #94a3b8;
+    font-size: 11px;
+  }
+</style>
+
+<meta property="og:title" content="2026年全球薪酬核算差错统计看板">
+<meta property="og:description" content="2026年全球薪酬核算差错统计看板">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://LiuYan185.github.io/payroll-error-dashboard-v2/">
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>2026年全球薪酬核算差错统计看板</h1>
+    <div class="subtitle">按BU及角色维度 | 数据截止至2026年4月</div>
+  </div>
+  <div class="header-btns">
+    <button onclick="downloadHTML()">下载HTML</button>
+    <button onclick="exportPNG()">导出PNG</button>
+  </div>
+</div>
+
+<div class="container" id="mainContainer">
+
+  <!-- Decision Summary (above KPI) -->
+  <div class="summary-card" style="margin-bottom:10px;">
+    <div class="summary-title">决策总结</div>
+    <ul class="summary-list">
+      <li>整体累计差错占比 <span class="hl-green">0.05%</span>，累计准确率 <span class="hl-green">99.95%</span>，整体达标。</li>
+      <li class="warn"><span class="hl-red">LBU</span> 累计差错占比 0.12%（准确率 99.88%），显著超过 0.05% 目标且准确率低于 99.95%，为重点改善对象。</li>
+      <li class="warn"><span class="hl-red">FBU</span> 累计差错占比 0.06%（准确率 99.94%），略超过 0.05% 目标线，准确率低于 99.95%，需持续关注。</li>
+      <li>HRBP 角色贡献差错 <span class="hl-red">22 人次</span>（占比 57.9%），为差错最主要来源；内部算薪系统贡献 9 人次（23.7%）次之。建议聚焦 HRBP 核算流程优化。</li>
+      <li>2月为差错高峰（13人次），3月回落至11人次，4月进一步降至6人次，差错呈<span class="hl-green">逐月下降趋势</span>，改善方向积极。</li>
+      <li class="good">ABU、GUS、GEU、HQU 四个BU 1-4月零差错或接近零差错，表现优异。</li>
+    </ul>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="label">累计算薪人次（1-4月）</div>
+      <div class="value">80,340<span class="unit">人次</span></div>
+      <div class="trend">覆盖 7 个BU</div>
+    </div>
+    <div class="kpi-card accent-red">
+      <div class="label">累计差错人次（1-4月）</div>
+      <div class="value red">38<span class="unit">人次</span></div>
+      <div class="trend down">4月差错 6 人次，环比下降 45%</div>
+    </div>
+    <div class="kpi-card accent-amber">
+      <div class="label">累计差错占比</div>
+      <div class="value amber">0.05<span class="unit">%</span></div>
+      <div class="trend">达到目标 0.05% 基准线</div>
+    </div>
+    <div class="kpi-card accent-green">
+      <div class="label">累计准确率</div>
+      <div class="value green">99.95<span class="unit">%</span></div>
+      <div class="trend">FBU / LBU 准确率低于 99.95%</div>
+    </div>
+  </div>
+
+  <!-- Tab Hint -->
+  <div class="tab-hint">点击可切换板块</div>
+
+  <!-- Main Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">BU分析</button>
+    <button class="tab-btn" data-tab="role" onclick="switchTab('role')">角色分析</button>
+    <button class="tab-btn" data-tab="detail" onclick="switchTab('detail')">明细数据</button>
+  </div>
+
+  <!-- Tab: Overview -->
+  <div id="tab-overview" class="tab-panel active">
+    <div class="chart-grid" style="gap:10px;">
+      <!-- Row 1: 差错人次趋势 + 算薪人次趋势 -->
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:8px;font-size:13px;">BU月度差错人次趋势</div>
+        <div class="mode-toggle" id="errModeToggle" style="margin-bottom:6px;">
+          <button class="mode-btn active" onclick="switchChartMode('err','single')">单BU详情</button>
+          <button class="mode-btn" onclick="switchChartMode('err','multi')">多BU对比</button>
+        </div>
+        <div class="bu-sub-panel active" id="errSinglePanel">
+          <div class="sub-tabs" id="errBuTabs" style="margin-bottom:6px;"><button class="sub-tab-btn active">集团</button><button class="sub-tab-btn">LBU</button><button class="sub-tab-btn">FBU</button><button class="sub-tab-btn">ABU</button><button class="sub-tab-btn">PBU</button><button class="sub-tab-btn">GEU</button><button class="sub-tab-btn">GUS</button><button class="sub-tab-btn">HQU</button></div>
+          <div id="errSingleChart" style="width: 100%; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011551"><div style="position: relative; width: 543px; height: 260px; padding: 0px; margin: 0px; border-width: 0px; cursor: default;"><canvas data-zr-dom-id="zr_0" width="678" height="325" style="position: absolute; left: 0px; top: 0px; width: 543px; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class=""></div></div>
+        </div>
+        <div class="bu-sub-panel" id="errMultiPanel">
+          <div class="bu-selector" id="errBuSelector" style="margin-bottom:6px;"><label><input type="checkbox" value="LBU"><span style="color: rgb(59, 130, 246); font-weight: 500;">LBU</span></label><label><input type="checkbox" value="FBU"><span style="color: rgb(239, 68, 68); font-weight: 500;">FBU</span></label><label><input type="checkbox" value="ABU"><span style="color: rgb(245, 158, 11); font-weight: 500;">ABU</span></label><label><input type="checkbox" value="PBU"><span style="color: rgb(34, 197, 94); font-weight: 500;">PBU</span></label><label><input type="checkbox" value="GEU"><span style="color: rgb(236, 72, 153); font-weight: 500;">GEU</span></label><label><input type="checkbox" value="GUS"><span style="color: rgb(139, 92, 246); font-weight: 500;">GUS</span></label><label><input type="checkbox" value="HQU"><span style="color: rgb(6, 182, 212); font-weight: 500;">HQU</span></label><div class="selector-btns"><button>全选</button><button>清空</button></div></div>
+          <div id="errMultiChart" style="width: 100%; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011558"><div style="position: relative; width: 100px; height: 260px; padding: 0px; margin: 0px; border-width: 0px;"><canvas data-zr-dom-id="zr_0" width="125" height="325" style="position: absolute; left: 0px; top: 0px; width: 100px; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class=""></div></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:8px;font-size:13px;">BU月度算薪人次趋势</div>
+        <div class="mode-toggle" id="cntModeToggle" style="margin-bottom:6px;">
+          <button class="mode-btn active" onclick="switchChartMode('cnt','single')">单BU详情</button>
+          <button class="mode-btn" onclick="switchChartMode('cnt','multi')">多BU对比</button>
+        </div>
+        <div class="bu-sub-panel active" id="cntSinglePanel">
+          <div class="sub-tabs" id="cntBuTabs" style="margin-bottom:6px;"><button class="sub-tab-btn active">集团</button><button class="sub-tab-btn">LBU</button><button class="sub-tab-btn">FBU</button><button class="sub-tab-btn">ABU</button><button class="sub-tab-btn">PBU</button><button class="sub-tab-btn">GEU</button><button class="sub-tab-btn">GUS</button><button class="sub-tab-btn">HQU</button></div>
+          <div id="cntSingleChart" style="width: 100%; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011560"><div style="position: relative; width: 542px; height: 260px; padding: 0px; margin: 0px; border-width: 0px; cursor: default;"><canvas data-zr-dom-id="zr_0" width="677" height="325" style="position: absolute; left: 0px; top: 0px; width: 542px; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class="" style="position: absolute; display: block; border-style: solid; white-space: nowrap; z-index: 9999999; box-shadow: rgba(0, 0, 0, 0.2) 1px 2px 10px; transition: opacity 0.2s cubic-bezier(0.23, 1, 0.32, 1), visibility 0.2s cubic-bezier(0.23, 1, 0.32, 1), transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); background-color: rgb(255, 255, 255); border-width: 1px; border-radius: 4px; color: rgb(102, 102, 102); font: 14px / 21px &quot;Microsoft YaHei&quot;; padding: 10px; top: 0px; left: 0px; transform: translate3d(187px, 49px, 0px); border-color: rgb(255, 255, 255); pointer-events: none; visibility: hidden; opacity: 0;"><div style="margin: 0px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><div style="font-size:14px;color:#666;font-weight:400;line-height:1;">1月</div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#3b82f6;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">集团HSSC算薪人次</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">19,862</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div></div></div>
+        </div>
+        <div class="bu-sub-panel" id="cntMultiPanel">
+          <div class="bu-selector" id="cntBuSelector" style="margin-bottom:6px;"><label><input type="checkbox" value="LBU"><span style="color: rgb(59, 130, 246); font-weight: 500;">LBU</span></label><label><input type="checkbox" value="FBU"><span style="color: rgb(239, 68, 68); font-weight: 500;">FBU</span></label><label><input type="checkbox" value="ABU"><span style="color: rgb(245, 158, 11); font-weight: 500;">ABU</span></label><label><input type="checkbox" value="PBU"><span style="color: rgb(34, 197, 94); font-weight: 500;">PBU</span></label><label><input type="checkbox" value="GEU"><span style="color: rgb(236, 72, 153); font-weight: 500;">GEU</span></label><label><input type="checkbox" value="GUS"><span style="color: rgb(139, 92, 246); font-weight: 500;">GUS</span></label><label><input type="checkbox" value="HQU"><span style="color: rgb(6, 182, 212); font-weight: 500;">HQU</span></label><div class="selector-btns"><button>全选</button><button>清空</button></div></div>
+          <div id="cntMultiChart" style="width: 100%; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011567"><div style="position: relative; width: 100px; height: 260px; padding: 0px; margin: 0px; border-width: 0px;"><canvas data-zr-dom-id="zr_0" width="125" height="325" style="position: absolute; left: 0px; top: 0px; width: 100px; height: 260px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class=""></div></div>
+        </div>
+      </div>
+
+      <!-- Row 2: 累计差错占比 + 角色差错贡献 -->
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:8px;font-size:13px;">BU累计差错占比（1-4月）</div>
+        <div id="chart2" style="width: 100%; height: 330px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011559"><div style="position: relative; width: 543px; height: 330px; padding: 0px; margin: 0px; border-width: 0px;"><canvas data-zr-dom-id="zr_0" width="678" height="412" style="position: absolute; left: 0px; top: 0px; width: 543px; height: 330px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class=""></div></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:8px;font-size:13px;">BU角色差错贡献分布（1-4月）</div>
+        <div id="chart5" style="width: 100%; height: 330px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011568"><div style="position: relative; width: 542px; height: 330px; padding: 0px; margin: 0px; border-width: 0px; cursor: default;"><canvas data-zr-dom-id="zr_0" width="677" height="412" style="position: absolute; left: 0px; top: 0px; width: 542px; height: 330px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class="" style="position: absolute; display: block; border-style: solid; white-space: nowrap; z-index: 9999999; box-shadow: rgba(0, 0, 0, 0.2) 1px 2px 10px; transition: opacity 0.2s cubic-bezier(0.23, 1, 0.32, 1), visibility 0.2s cubic-bezier(0.23, 1, 0.32, 1), transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); background-color: rgb(255, 255, 255); border-width: 1px; border-radius: 4px; color: rgb(102, 102, 102); font: 14px / 21px &quot;Microsoft YaHei&quot;; padding: 10px; top: 0px; left: 0px; transform: translate3d(241px, 135px, 0px); border-color: rgb(255, 255, 255); pointer-events: none; visibility: hidden; opacity: 0;"><div style="margin: 0px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><div style="font-size:14px;color:#666;font-weight:400;line-height:1;">GEU</div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#3b82f6;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">HSSC</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">0</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#ef4444;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">HRBP</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">0</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#22c55e;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">浮动奖金核算者</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">0</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#f59e0b;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">内部算薪系统</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">0</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Role -->
+  <div id="tab-role" class="tab-panel">
+    <div class="chart-grid">
+      <div class="chart-card full">
+        <div class="chart-title">角色月度差错人次趋势（1-4月）</div>
+        <div id="roleMultiChart" style="width: 100%; height: 320px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011569"><div style="position: relative; width: 100px; height: 320px; padding: 0px; margin: 0px; border-width: 0px; cursor: default;"><canvas data-zr-dom-id="zr_0" width="125" height="400" style="position: absolute; left: 0px; top: 0px; width: 100px; height: 320px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class="" style="position: absolute; display: block; border-style: solid; white-space: nowrap; z-index: 9999999; box-shadow: rgba(0, 0, 0, 0.2) 1px 2px 10px; transition: opacity 0.2s cubic-bezier(0.23, 1, 0.32, 1), visibility 0.2s cubic-bezier(0.23, 1, 0.32, 1), transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); background-color: rgb(255, 255, 255); border-width: 1px; border-radius: 4px; color: rgb(102, 102, 102); font: 14px / 21px &quot;Microsoft YaHei&quot;; padding: 10px; top: 0px; left: 0px; transform: translate3d(366px, 50px, 0px); border-color: rgb(255, 255, 255); pointer-events: none; visibility: hidden; opacity: 0;"><div style="margin: 0px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><div style="font-size:14px;color:#666;font-weight:400;line-height:1;">2月</div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#3b82f6;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">HSSC</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">4</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#ef4444;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">HRBP</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">3</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#22c55e;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">浮动奖金核算者</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">0</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="margin: 10px 0 0;line-height:1;"><div style="margin: 0px 0 0;line-height:1;"><span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:#f59e0b;"></span><span style="font-size:14px;color:#666;font-weight:400;margin-left:2px">内部算薪系统</span><span style="float:right;margin-left:20px;font-size:14px;color:#666;font-weight:900">6</span><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div><div style="clear:both"></div></div></div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">角色差错占比分布</div>
+        <div id="chart7" style="width: 100%; height: 320px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011570"><div style="position: relative; width: 100px; height: 320px; padding: 0px; margin: 0px; border-width: 0px;"><canvas data-zr-dom-id="zr_0" width="125" height="400" style="position: absolute; left: 0px; top: 0px; width: 100px; height: 320px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class=""></div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">角色累计准确率对比</div>
+        <div id="chart8" style="width: 100%; height: 320px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); position: relative;" _echarts_instance_="ec_1779863011571"><div style="position: relative; width: 100px; height: 320px; padding: 0px; margin: 0px; border-width: 0px;"><canvas data-zr-dom-id="zr_0" width="125" height="400" style="position: absolute; left: 0px; top: 0px; width: 100px; height: 320px; user-select: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); padding: 0px; margin: 0px; border-width: 0px;"></canvas></div><div class=""></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Detail -->
+  <div id="tab-detail" class="tab-panel">
+    <div class="chart-card full">
+      <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>核算差错明细表</span>
+        <button class="expand-btn" id="expandAllBtn" onclick="toggleAllDetails()">
+          <span class="arrow">▶</span> 展开角色详情
+        </button>
+      </div>
+      <div class="table-wrapper">
+        <table id="detailTable">
+          <thead>
+            <tr>
+              <th rowspan="2">BU</th>
+              <th rowspan="2">所属角色</th>
+              <th colspan="3">1月</th>
+              <th colspan="3">2月</th>
+              <th colspan="3">3月</th>
+              <th colspan="3">4月</th>
+              <th rowspan="2">差错人次</th>
+              <th rowspan="2">算薪人次</th>
+              <th rowspan="2">差错占比</th>
+              <th rowspan="2">准确率</th>
+            </tr>
+            <tr>
+              <th>差错</th><th>人次</th><th>占比</th>
+              <th>差错</th><th>人次</th><th>占比</th>
+              <th>差错</th><th>人次</th><th>占比</th>
+              <th>差错</th><th>人次</th><th>占比</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody"><tr class="subtotal"><td class="bu-cell">LBU</td><td class="role-cell">小计</td><td>7</td><td>-</td><td>0.22%</td><td>3</td><td>-</td><td>0.10%</td><td>0</td><td>-</td><td>0%</td><td>5</td><td>-</td><td>0.16%</td><td>15</td><td>12,321</td><td class="rate-bad">0.12%</td><td class="rate-warn">99.88%</td></tr><tr class="role-detail-row" data-bu="LBU"><td></td><td class="role-cell">HSSC</td><td class="">0</td><td>3,151</td><td>0%</td><td class="">0</td><td>3,058</td><td>0%</td><td class="">0</td><td>3,065</td><td>0%</td><td class="">2</td><td>3,047</td><td>0.07%</td><td>2</td><td>12,321</td><td>0.02%</td><td class="rate-good">99.98%</td></tr><tr class="role-detail-row" data-bu="LBU"><td></td><td class="role-cell">HRBP</td><td class="err-highlight">6</td><td>-</td><td>0.19%</td><td class="err-highlight">3</td><td>-</td><td>0.10%</td><td class="">0</td><td>-</td><td>0%</td><td class="err-highlight">3</td><td>-</td><td>0.10%</td><td>12</td><td>-</td><td>0.10%</td><td class="rate-warn">99.9%</td></tr><tr class="role-detail-row" data-bu="LBU"><td></td><td class="role-cell">浮动奖金核算者</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="LBU"><td></td><td class="role-cell">内部算薪系统</td><td class="">1</td><td>-</td><td>0.03%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>1</td><td>-</td><td>0.01%</td><td class="rate-good">99.99%</td></tr><tr class="subtotal"><td class="bu-cell">FBU</td><td class="role-cell">小计</td><td>0</td><td>-</td><td>0%</td><td>10</td><td>-</td><td>0.14%</td><td>11</td><td>-</td><td>0.13%</td><td>0</td><td>-</td><td>0%</td><td>21</td><td>32,593</td><td class="rate-bad">0.06%</td><td class="rate-warn">99.94%</td></tr><tr class="role-detail-row" data-bu="FBU"><td></td><td class="role-cell">HSSC</td><td class="">0</td><td>8,209</td><td>0%</td><td class="err-highlight">4</td><td>7,271</td><td>0.06%</td><td class="">1</td><td>8,402</td><td>0.01%</td><td class="">0</td><td>8,711</td><td>0%</td><td>5</td><td>32,593</td><td>0.02%</td><td class="rate-good">99.98%</td></tr><tr class="role-detail-row" data-bu="FBU"><td></td><td class="role-cell">HRBP</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="err-highlight">8</td><td>-</td><td>0.10%</td><td class="">0</td><td>-</td><td>0%</td><td>8</td><td>-</td><td>0.02%</td><td class="rate-good">99.98%</td></tr><tr class="role-detail-row" data-bu="FBU"><td></td><td class="role-cell">浮动奖金核算者</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="FBU"><td></td><td class="role-cell">内部算薪系统</td><td class="">0</td><td>-</td><td>0%</td><td class="err-highlight">6</td><td>-</td><td>0.08%</td><td class="">2</td><td>-</td><td>0.02%</td><td class="">0</td><td>-</td><td>0%</td><td>8</td><td>-</td><td>0.02%</td><td class="rate-good">99.98%</td></tr><tr class="subtotal"><td class="bu-cell">ABU</td><td class="role-cell">小计</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>1,107</td><td class="rate-good">0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="ABU"><td></td><td class="role-cell">HSSC</td><td class="">0</td><td>254</td><td>0%</td><td class="">0</td><td>252</td><td>0%</td><td class="">0</td><td>285</td><td>0%</td><td class="">0</td><td>316</td><td>0%</td><td>0</td><td>1,107</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="ABU"><td></td><td class="role-cell">HRBP</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="ABU"><td></td><td class="role-cell">浮动奖金核算者</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="ABU"><td></td><td class="role-cell">内部算薪系统</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="subtotal"><td class="bu-cell">PBU</td><td class="role-cell">小计</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>1</td><td>-</td><td>0.17%</td><td>1</td><td>1,772</td><td class="rate-bad">0.06%</td><td class="rate-warn">99.94%</td></tr><tr class="role-detail-row" data-bu="PBU"><td></td><td class="role-cell">HSSC</td><td class="">0</td><td>374</td><td>0%</td><td class="">0</td><td>381</td><td>0%</td><td class="">0</td><td>438</td><td>0%</td><td class="">0</td><td>579</td><td>0%</td><td>0</td><td>1,772</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="PBU"><td></td><td class="role-cell">HRBP</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">1</td><td>-</td><td>0.17%</td><td>1</td><td>-</td><td>0.06%</td><td class="rate-warn">99.94%</td></tr><tr class="role-detail-row" data-bu="PBU"><td></td><td class="role-cell">浮动奖金核算者</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="PBU"><td></td><td class="role-cell">内部算薪系统</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="subtotal"><td class="bu-cell">GEU</td><td class="role-cell">小计</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>4,604</td><td class="rate-good">0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GEU"><td></td><td class="role-cell">HSSC</td><td class="">0</td><td>1,395</td><td>0%</td><td class="">0</td><td>1,006</td><td>0%</td><td class="">0</td><td>1,102</td><td>0%</td><td class="">0</td><td>1,101</td><td>0%</td><td>0</td><td>4,604</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GEU"><td></td><td class="role-cell">HRBP</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GEU"><td></td><td class="role-cell">浮动奖金核算者</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GEU"><td></td><td class="role-cell">内部算薪系统</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="subtotal"><td class="bu-cell">GUS</td><td class="role-cell">小计</td><td>1</td><td>-</td><td>0.02%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>1</td><td>24,014</td><td class="rate-good">&lt;0.01%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GUS"><td></td><td class="role-cell">HSSC</td><td class="">0</td><td>5,563</td><td>0%</td><td class="">0</td><td>5,734</td><td>0%</td><td class="">0</td><td>6,308</td><td>0%</td><td class="">0</td><td>6,409</td><td>0%</td><td>0</td><td>24,014</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GUS"><td></td><td class="role-cell">HRBP</td><td class="">1</td><td>-</td><td>0.02%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>1</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GUS"><td></td><td class="role-cell">浮动奖金核算者</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="GUS"><td></td><td class="role-cell">内部算薪系统</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="subtotal"><td class="bu-cell">HQU</td><td class="role-cell">小计</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td>0</td><td>3,929</td><td class="rate-good">0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="HQU"><td></td><td class="role-cell">HSSC</td><td class="">0</td><td>916</td><td>0%</td><td class="">0</td><td>898</td><td>0%</td><td class="">0</td><td>925</td><td>0%</td><td class="">0</td><td>1,190</td><td>0%</td><td>0</td><td>3,929</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="HQU"><td></td><td class="role-cell">HRBP</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="HQU"><td></td><td class="role-cell">浮动奖金核算者</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="role-detail-row" data-bu="HQU"><td></td><td class="role-cell">内部算薪系统</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td class="">0</td><td>-</td><td>0%</td><td>0</td><td>-</td><td>0%</td><td class="rate-good">100%</td></tr><tr class="total"><td class="bu-cell">集团</td><td class="role-cell">合计</td><td class="err-highlight">8</td><td>-</td><td>0.04%</td><td class="err-highlight">13</td><td>-</td><td>0.07%</td><td class="err-highlight">11</td><td>-</td><td>0.05%</td><td class="err-highlight">6</td><td>-</td><td>0.03%</td><td class="err-highlight">38</td><td>80,340</td><td class="rate-good">0.05%</td><td class="rate-good">99.95%</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">纵腾集团 | 薪酬核算准确率监控 | 2026年1月 - 4月</div>
+
+<script>
+// ============= DATA (1-4月) =============
+// All rate values in percentage form (e.g. 0.05 means 0.05%)
+// Verified against Excel source: 集团合计 totalRate=0.0005 → 0.05%, accuracy=99.95%
+const MONTHS = ['1月','2月','3月','4月'];
+const BU_LIST = ['LBU','FBU','ABU','PBU','GEU','GUS','HQU'];
+const ALL_BUS = ['集团',...BU_LIST];
+const ROLES = ['HSSC','HRBP','浮动奖金核算者','内部算薪系统'];
+
+const rawData = [
+  // FBU
+  { bu:'FBU', role:'HSSC', errors:[0,4,1,0], counts:[8209,7271,8402,8711], rates:[0,0.055,0.012,0], totalErrors:5, totalCount:32593, totalRate:0.02, accuracy:99.98 },
+  { bu:'FBU', role:'HRBP', errors:[0,0,8,0], counts:[null,null,null,null], rates:[0,0,0.095,0], totalErrors:8, totalCount:null, totalRate:0.02, accuracy:99.98 },
+  { bu:'FBU', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'FBU', role:'内部算薪系统', errors:[0,6,2,0], counts:[null,null,null,null], rates:[0,0.083,0.024,0], totalErrors:8, totalCount:null, totalRate:0.02, accuracy:99.98 },
+  { bu:'FBU', role:'小计', errors:[0,10,11,0], counts:[null,null,null,null], rates:[0,0.138,0.131,0], totalErrors:21, totalCount:32593, totalRate:0.06, accuracy:99.94 },
+
+  // LBU
+  { bu:'LBU', role:'HSSC', errors:[0,0,0,2], counts:[3151,3058,3065,3047], rates:[0,0,0,0.066], totalErrors:2, totalCount:12321, totalRate:0.02, accuracy:99.98 },
+  { bu:'LBU', role:'HRBP', errors:[6,3,0,3], counts:[null,null,null,null], rates:[0.19,0.098,0,0.098], totalErrors:12, totalCount:null, totalRate:0.1, accuracy:99.9 },
+  { bu:'LBU', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'LBU', role:'内部算薪系统', errors:[1,0,0,0], counts:[null,null,null,null], rates:[0.032,0,0,0], totalErrors:1, totalCount:null, totalRate:0.01, accuracy:99.99 },
+  { bu:'LBU', role:'小计', errors:[7,3,0,5], counts:[null,null,null,null], rates:[0.222,0.098,0,0.164], totalErrors:15, totalCount:12321, totalRate:0.12, accuracy:99.88 },
+
+  // PBU
+  { bu:'PBU', role:'HSSC', errors:[0,0,0,0], counts:[374,381,438,579], rates:[0,0,0,0], totalErrors:0, totalCount:1772, totalRate:0, accuracy:100 },
+  { bu:'PBU', role:'HRBP', errors:[0,0,0,1], counts:[null,null,null,null], rates:[0,0,0,0.17], totalErrors:1, totalCount:null, totalRate:0.06, accuracy:99.94 },
+  { bu:'PBU', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'PBU', role:'内部算薪系统', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'PBU', role:'小计', errors:[0,0,0,1], counts:[null,null,null,null], rates:[0,0,0,0.17], totalErrors:1, totalCount:1772, totalRate:0.06, accuracy:99.94 },
+
+  // ABU
+  { bu:'ABU', role:'HSSC', errors:[0,0,0,0], counts:[254,252,285,316], rates:[0,0,0,0], totalErrors:0, totalCount:1107, totalRate:0, accuracy:100 },
+  { bu:'ABU', role:'HRBP', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'ABU', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'ABU', role:'内部算薪系统', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'ABU', role:'小计', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:1107, totalRate:0, accuracy:100 },
+
+  // GUS
+  { bu:'GUS', role:'HSSC', errors:[0,0,0,0], counts:[5563,5734,6308,6409], rates:[0,0,0,0], totalErrors:0, totalCount:24014, totalRate:0, accuracy:100 },
+  { bu:'GUS', role:'HRBP', errors:[1,0,0,0], counts:[null,null,null,null], rates:[0.018,0,0,0], totalErrors:1, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'GUS', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'GUS', role:'内部算薪系统', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'GUS', role:'小计', errors:[1,0,0,0], counts:[null,null,null,null], rates:[0.018,0,0,0], totalErrors:1, totalCount:24014, totalRate:0.004, accuracy:100 },
+
+  // GEU
+  { bu:'GEU', role:'HSSC', errors:[0,0,0,0], counts:[1395,1006,1102,1101], rates:[0,0,0,0], totalErrors:0, totalCount:4604, totalRate:0, accuracy:100 },
+  { bu:'GEU', role:'HRBP', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'GEU', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'GEU', role:'内部算薪系统', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'GEU', role:'小计', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:4604, totalRate:0, accuracy:100 },
+
+  // HQU
+  { bu:'HQU', role:'HSSC', errors:[0,0,0,0], counts:[916,898,925,1190], rates:[0,0,0,0], totalErrors:0, totalCount:3929, totalRate:0, accuracy:100 },
+  { bu:'HQU', role:'HRBP', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'HQU', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'HQU', role:'内部算薪系统', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'HQU', role:'小计', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:3929, totalRate:0, accuracy:100 },
+
+  // Group Total - FIXED: totalRate 0.07→0.05, accuracy 99.93→99.95
+  { bu:'集团', role:'HSSC', errors:[0,4,1,2], counts:[19862,18600,20525,21353], rates:[0,0.022,0.005,0.009], totalErrors:7, totalCount:80340, totalRate:0.01, accuracy:99.99 },
+  { bu:'集团', role:'HRBP', errors:[7,3,8,4], counts:[null,null,null,null], rates:[0.035,0.016,0.039,0.02], totalErrors:22, totalCount:null, totalRate:0.03, accuracy:99.97 },
+  { bu:'集团', role:'浮动奖金核算者', errors:[0,0,0,0], counts:[null,null,null,null], rates:[0,0,0,0], totalErrors:0, totalCount:null, totalRate:0, accuracy:100 },
+  { bu:'集团', role:'内部算薪系统', errors:[1,6,2,0], counts:[null,null,null,null], rates:[0.005,0.032,0.01,0], totalErrors:9, totalCount:null, totalRate:0.01, accuracy:99.99 },
+  { bu:'集团', role:'合计', errors:[8,13,11,6], counts:[null,null,null,null], rates:[0.04,0.07,0.054,0.03], totalErrors:38, totalCount:80340, totalRate:0.05, accuracy:99.95 },
+];
+
+// ============= HELPERS =============
+const colors = ['#3b82f6','#ef4444','#f59e0b','#22c55e','#8b5cf6','#ec4899','#06b6d4','#64748b'];
+const buColorMap = { 'FBU':'#ef4444','LBU':'#3b82f6','PBU':'#22c55e','ABU':'#f59e0b','GUS':'#8b5cf6','GEU':'#ec4899','HQU':'#06b6d4' };
+buColorMap['集团'] = '#3b82f6';
+
+function getSubtotals() { return rawData.filter(d => d.role === '小计' || d.role === '合计'); }
+function getGroupTotal() { return rawData.find(d => d.bu === '集团' && d.role === '合计'); }
+function getBuSubtotal(bu) { return rawData.find(d => d.bu === bu && d.role === '小计'); }
+function getRoleGroupTotal(role) { return rawData.find(d => d.bu === '集团' && d.role === role); }
+function fmtPct(v) { return v == null ? '-' : (v >= 0.01 ? v.toFixed(2)+'%' : (v > 0 ? '<0.01%' : '0%')); }
+function fmtNum(v) { return v == null ? '-' : v.toLocaleString(); }
+
+// ============= BUTTONS =============
+function downloadHTML() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob(['<!DOCTYPE html>\n' + html], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '2026年全球薪酬核算差错统计看板_V15.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportPNG() {
+  html2canvas(document.body, { scale: 2, useCORS: true, backgroundColor: '#f0f4f8', windowWidth: 1440 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = '2026年全球薪酬核算差错统计看板_V15.png';
+    a.click();
+  }).catch(() => {
+    alert('导出失败，请稍后重试');
+  });
+}
+
+// ============= TAB SWITCH =============
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === id);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+}
+
+// ============= CHART MODE SWITCH (single/multi) =============
+const chartInstances = {};
+
+function switchChartMode(chartKey, mode) {
+  const toggleId = chartKey + 'ModeToggle';
+  document.getElementById(toggleId).querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', (mode === 'single' && b.textContent.includes('单')) || (mode === 'multi' && b.textContent.includes('多')));
+  });
+  document.getElementById(chartKey + 'SinglePanel').classList.toggle('active', mode === 'single');
+  document.getElementById(chartKey + 'MultiPanel').classList.toggle('active', mode === 'multi');
+  // Force resize on the newly active chart
+  setTimeout(() => {
+    ['Single','Multi'].forEach(suffix => {
+      const key = chartKey + suffix;
+      if (chartInstances[key]) {
+        try { chartInstances[key].resize(); } catch(e) {}
+      }
+    });
+  }, 150);
+}
+
+// ============= GENERIC: Single-item Sub-tabs + Bar Chart =============
+function createSingleItemTabs(containerId, items, colors_map, onSwitch) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  items.forEach((item, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'sub-tab-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = item;
+    btn.onclick = function() {
+      container.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      onSwitch(item, i);
+    };
+    container.appendChild(btn);
+  });
+}
+
+function createSingleBarChart(domId, data, label, color, yAxisName) {
+  if (chartInstances[domId]) { chartInstances[domId].dispose(); }
+  const chart = echarts.init(document.getElementById(domId));
+  chartInstances[domId] = chart;
+  chart.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { top: 20, right: 20, bottom: 28, left: 56 },
+    xAxis: { type: 'category', data: MONTHS, axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', name: yAxisName || '差错人次', minInterval: 1, axisLabel: { fontSize: 11 } },
+    series: [{
+      type: 'bar',
+      barWidth: '40%',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0,0,0,1,[
+          {offset:0, color: color},
+          {offset:1, color: color+'66'}
+        ]),
+        borderRadius: [4,4,0,0]
+      },
+      label: { show: true, position: 'top', fontSize: 12, fontWeight: 600, formatter: p => p.value || '' },
+      data: data,
+      name: label
+    }]
+  });
+  return chart;
+}
+
+// ============= GENERIC: Multi-select Checkbox + Line/Bar Chart =============
+function createMultiSelector(containerId, items, colors_map, onSwitch) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  items.forEach((item, i) => {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = item;
+    cb.checked = true; // default all checked
+    cb.onchange = () => onSwitch();
+    const span = document.createElement('span');
+    span.textContent = item;
+    span.style.color = colors_map[item] || colors[i];
+    span.style.fontWeight = '500';
+    label.appendChild(cb);
+    label.appendChild(span);
+    container.appendChild(label);
+  });
+  // Select all / clear buttons
+  const btnsDiv = document.createElement('div');
+  btnsDiv.className = 'selector-btns';
+  const allBtn = document.createElement('button');
+  allBtn.textContent = '全选';
+  allBtn.onclick = () => {
+    container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+    onSwitch();
+  };
+  const clearBtn = document.createElement('button');
+  clearBtn.textContent = '清空';
+  clearBtn.onclick = () => {
+    container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+    onSwitch();
+  };
+  btnsDiv.appendChild(allBtn);
+  btnsDiv.appendChild(clearBtn);
+  container.appendChild(btnsDiv);
+}
+
+// ============= CHART 1: 差错人次趋势 (single+multi) =============
+(function() {
+  // Error data for each BU and group total
+  function getErrors(buName) {
+    if (buName === '集团') {
+      const g = getGroupTotal();
+      return { data: g.errors, label: '集团差错人次' };
+    }
+    const sub = getBuSubtotal(buName);
+    return { data: sub.errors, label: buName + '差错人次' };
+  }
+
+  // Single mode
+  createSingleItemTabs('errBuTabs', ALL_BUS, buColorMap, function(bu, idx) {
+    const info = getErrors(bu);
+    createSingleBarChart('errSingleChart', info.data, info.label, buColorMap[bu], '差错人次');
+  });
+  // Init first tab
+  const firstInfo = getErrors('集团');
+  createSingleBarChart('errSingleChart', firstInfo.data, firstInfo.label, buColorMap['集团'], '差错人次');
+
+  // Multi mode
+  createMultiSelector('errBuSelector', BU_LIST, buColorMap, function() {
+    const checked = [];
+    document.getElementById('errBuSelector').querySelectorAll('input[type="checkbox"]:checked').forEach(cb => { checked.push(cb.value); });
+    if (chartInstances['errMulti']) { chartInstances['errMulti'].dispose(); }
+    const chart = echarts.init(document.getElementById('errMultiChart'));
+    chartInstances['errMulti'] = chart;
+    const series = checked.map(bu => ({
+      name: bu,
+      type: 'bar',
+      barGap: '10%',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0,0,0,1,[
+          {offset:0, color: buColorMap[bu]},
+          {offset:1, color: buColorMap[bu]+'66'}
+        ]),
+        borderRadius: [3,3,0,0]
+      },
+      data: getBuSubtotal(bu).errors,
+      label: { show: true, position: 'top', fontSize: 11, formatter: p => p.value || '' }
+    }));
+    chart.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { bottom: 0, textStyle: { fontSize: 11 } },
+      grid: { top: 16, right: 16, bottom: 40, left: 46 },
+      xAxis: { type: 'category', data: MONTHS, axisLabel: { fontSize: 12 } },
+      yAxis: { type: 'value', name: '差错人次', minInterval: 1, axisLabel: { fontSize: 11 } },
+      series: series
+    });
+  });
+  // Init multi chart
+  document.getElementById('errBuSelector').querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.dispatchEvent(new Event('change')); });
+})();
+
+// ============= CHART 2: BU累计差错占比 (sorted desc) =============
+(function() {
+  let subtotals = getSubtotals().filter(d => d.role === '小计');
+  // Sort by totalRate descending
+  subtotals = subtotals.slice().sort((a, b) => b.totalRate - a.totalRate);
+  const chart = echarts.init(document.getElementById('chart2'));
+  chart.setOption({
+    tooltip: { trigger: 'axis', formatter: p => {
+      let s = p[0].name + '<br/>';
+      p.forEach(item => { s += item.marker + item.seriesName + ': ' + fmtPct(item.value) + '<br/>'; });
+      return s;
+    }},
+    grid: { top: 16, right: 16, bottom: 28, left: 56 },
+    xAxis: { type: 'category', data: subtotals.map(d => d.bu), axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', name: '差错占比(%)', axisLabel: { fontSize: 11, formatter: v => v+'%' } },
+    series: [{
+      type: 'bar',
+      barWidth: '50%',
+      data: subtotals.map((d, i) => ({
+        value: d.totalRate,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0,0,0,1,[
+            {offset:0, color: buColorMap[d.bu] || colors[i]},
+            {offset:1, color: (buColorMap[d.bu] || colors[i])+'88'}
+          ]),
+          borderRadius: [4,4,0,0]
+        },
+        label: { show: true, position: 'top', fontSize: 11, fontWeight: 600, formatter: p => fmtPct(p.value) }
+      }))
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+// ============= CHART: 算薪人次趋势 (single+multi) =============
+(function() {
+  function getCounts(buName) {
+    if (buName === '集团') {
+      const hssc = rawData.find(d => d.bu === '集团' && d.role === 'HSSC');
+      return { data: hssc.counts, label: '集团HSSC算薪人次' };
+    }
+    const hssc = rawData.find(d => d.bu === buName && d.role === 'HSSC');
+    return { data: hssc.counts, label: buName + 'HSSC算薪人次' };
+  }
+
+  createSingleItemTabs('cntBuTabs', ALL_BUS, buColorMap, function(bu, idx) {
+    const info = getCounts(bu);
+    createSingleBarChart('cntSingleChart', info.data, info.label, buColorMap[bu], '算薪人次');
+  });
+  const firstInfo = getCounts('集团');
+  createSingleBarChart('cntSingleChart', firstInfo.data, firstInfo.label, buColorMap['集团'], '算薪人次');
+
+  createMultiSelector('cntBuSelector', BU_LIST, buColorMap, function() {
+    const checked = [];
+    document.getElementById('cntBuSelector').querySelectorAll('input[type="checkbox"]:checked').forEach(cb => { checked.push(cb.value); });
+    if (chartInstances['cntMulti']) { chartInstances['cntMulti'].dispose(); }
+    const chart = echarts.init(document.getElementById('cntMultiChart'));
+    chartInstances['cntMulti'] = chart;
+    const series = checked.map(bu => ({
+      name: bu,
+      type: 'bar',
+      barGap: '10%',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0,0,0,1,[
+          {offset:0, color: buColorMap[bu]},
+          {offset:1, color: buColorMap[bu]+'66'}
+        ]),
+        borderRadius: [3,3,0,0]
+      },
+      data: rawData.find(d => d.bu === bu && d.role === 'HSSC').counts,
+      label: { show: true, fontSize: 11, formatter: p => p.value ? (p.value/1000).toFixed(1)+'k' : '' }
+    }));
+    chart.setOption({
+      tooltip: { trigger: 'axis', formatter: p => {
+        let s = p[0].axisValue + '<br/>';
+        p.forEach(item => { s += item.marker + item.seriesName + ': ' + fmtNum(item.value) + '<br/>'; });
+        return s;
+      }},
+      legend: { bottom: 0, textStyle: { fontSize: 11 } },
+      grid: { top: 16, right: 16, bottom: 40, left: 62 },
+      xAxis: { type: 'category', data: MONTHS, axisLabel: { fontSize: 12 } },
+      yAxis: { type: 'value', name: '算薪人次', axisLabel: { fontSize: 11, formatter: v => (v/1000).toFixed(0)+'k' } },
+      series: series
+    });
+  });
+  document.getElementById('cntBuSelector').querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.dispatchEvent(new Event('change')); });
+})();
+
+// ============= CHART 5: 角色差错贡献 (sorted by BU total errors desc) =============
+(function() {
+  const roleColors = { 'HSSC':'#3b82f6','HRBP':'#ef4444','浮动奖金核算者':'#22c55e','内部算薪系统':'#f59e0b' };
+  // Sort BU_LIST by total errors descending
+  const sortedBUs = BU_LIST.slice().sort((a, b) => {
+    const aTotal = getBuSubtotal(a).totalErrors;
+    const bTotal = getBuSubtotal(b).totalErrors;
+    return bTotal - aTotal;
+  });
+  const series = ROLES.map(role => ({
+    name: role,
+    type: 'bar',
+    stack: 'total',
+    barWidth: '45%',
+    emphasis: { focus: 'series' },
+    itemStyle: { color: roleColors[role] },
+    data: sortedBUs.map(bu => {
+      const d = rawData.find(r => r.bu === bu && r.role === role);
+      return d ? d.totalErrors : 0;
+    })
+  }));
+  const chart = echarts.init(document.getElementById('chart5'));
+  chart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      legend: { bottom: 0, textStyle: { fontSize: 10 } },
+      grid: { top: 16, right: 16, bottom: 40, left: 46 },
+    xAxis: { type: 'category', data: sortedBUs, axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', name: '差错人次', minInterval: 1, axisLabel: { fontSize: 11 } },
+    series: series
+  });
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+// ============= CHART 6: 角色差错趋势 (all roles, no selector) =============
+(function() {
+  const roleColors = { 'HSSC':'#3b82f6','HRBP':'#ef4444','浮动奖金核算者':'#22c55e','内部算薪系统':'#f59e0b' };
+  const ALL_ROLES = ['HSSC','HRBP','浮动奖金核算者','内部算薪系统'];
+  const chart = echarts.init(document.getElementById('roleMultiChart'));
+  const series = ALL_ROLES.map(role => ({
+    name: role,
+    type: 'bar',
+    barGap: '10%',
+    itemStyle: {
+      color: new echarts.graphic.LinearGradient(0,0,0,1,[
+        {offset:0, color: roleColors[role]},
+        {offset:1, color: roleColors[role]+'66'}
+      ]),
+      borderRadius: [3,3,0,0]
+    },
+    data: getRoleGroupTotal(role).errors,
+    label: { show: true, position: 'top', fontSize: 11, formatter: p => p.value || '' }
+  }));
+  chart.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0, textStyle: { fontSize: 11 } },
+    grid: { top: 16, right: 16, bottom: 40, left: 46 },
+    xAxis: { type: 'category', data: MONTHS, axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', name: '差错人次', minInterval: 1, axisLabel: { fontSize: 11 } },
+    series: series
+  });
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+// ============= CHART 7: 角色差错饼图 =============
+(function() {
+  const roleColors = ['#3b82f6','#ef4444','#22c55e','#f59e0b'];
+  const data = ROLES.map((role, i) => {
+    const d = getRoleGroupTotal(role);
+    return { name: role, value: d ? d.totalErrors : 0, itemStyle: { color: roleColors[i] } };
+  }).filter(d => d.value > 0);
+  const chart = echarts.init(document.getElementById('chart7'));
+  chart.setOption({
+    tooltip: { trigger: 'item', formatter: p => p.name + ': ' + p.value + '人次 (' + p.percent + '%)' },
+    legend: { orient: 'vertical', right: 10, top: 'center', textStyle: { fontSize: 11 } },
+    series: [{
+      type: 'pie',
+      radius: ['42%','70%'],
+      center: ['40%','50%'],
+      avoidLabelOverlap: true,
+      label: { show: true, formatter: '{b}\n{c}人次', fontSize: 11 },
+      labelLine: { length: 15, length2: 10 },
+      emphasis: { label: { fontSize: 13, fontWeight: 'bold' } },
+      data: data
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+// ============= CHART 8: 角色准确率 =============
+(function() {
+  const roleColors = ['#3b82f6','#ef4444','#22c55e','#f59e0b'];
+  const data = ROLES.map(role => {
+    const d = getRoleGroupTotal(role);
+    return { name: role, value: d ? d.accuracy : 100, errors: d ? d.totalErrors : 0 };
+  });
+  const chart = echarts.init(document.getElementById('chart8'));
+  chart.setOption({
+    tooltip: { formatter: p => p.name + '<br/>准确率: ' + p.value + '%<br/>差错: ' + p.data.errors + '人次' },
+    grid: { top: 16, right: 36, bottom: 28, left: 110 },
+    xAxis: { type: 'value', min: 99.8, max: 100.01, axisLabel: { fontSize: 10, formatter: v => v.toFixed(2)+'%' } },
+    yAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { fontSize: 11 } },
+    series: [{
+      type: 'bar',
+      barWidth: '55%',
+      data: data.map((d, i) => ({
+        value: d.value,
+        errors: d.errors,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0,0,1,0,[
+            {offset:0, color: roleColors[i]+'cc'},
+            {offset:1, color: roleColors[i]}
+          ]),
+          borderRadius: [0,4,4,0]
+        },
+        label: { show: true, position: 'right', fontSize: 11, fontWeight: 600, formatter: p => p.value + '%' }
+      }))
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+// ============= DETAIL TABLE (1-4月) =============
+let detailExpanded = false;
+function toggleAllDetails() {
+  detailExpanded = !detailExpanded;
+  document.querySelectorAll('.role-detail-row').forEach(row => {
+    row.classList.toggle('expanded', detailExpanded);
+  });
+  const btn = document.getElementById('expandAllBtn');
+  btn.classList.toggle('expanded', detailExpanded);
+  btn.innerHTML = detailExpanded
+    ? '<span class="arrow">▼</span> 收缩角色详情'
+    : '<span class="arrow">▶</span> 展开角色详情';
+}
+
+(function() {
+  const tbody = document.getElementById('detailBody');
+  let html = '';
+
+  BU_LIST.forEach(bu => {
+    const buData = rawData.filter(d => d.bu === bu && ROLES.includes(d.role));
+    const subtotal = getBuSubtotal(bu);
+    // BU subtotal row
+    html += '<tr class="subtotal"><td class="bu-cell">' + bu + '</td><td class="role-cell">小计</td>';
+    for (let m = 0; m < 4; m++) {
+      html += '<td>' + fmtNum(subtotal.errors[m]) + '</td><td>' + fmtNum(subtotal.counts[m]) + '</td><td>' + fmtPct(subtotal.rates[m]) + '</td>';
+    }
+    html += '<td>' + fmtNum(subtotal.totalErrors) + '</td><td>' + fmtNum(subtotal.totalCount) + '</td>';
+    html += '<td class="' + (subtotal.totalRate > 0.05 ? 'rate-bad' : 'rate-good') + '">' + fmtPct(subtotal.totalRate) + '</td>';
+    html += '<td class="' + (subtotal.accuracy < 99.95 ? 'rate-warn' : 'rate-good') + '">' + subtotal.accuracy + '%</td></tr>';
+
+    // Role detail rows (hidden by default)
+    buData.forEach(d => {
+      html += '<tr class="role-detail-row" data-bu="' + bu + '"><td></td><td class="role-cell">' + d.role + '</td>';
+      for (let m = 0; m < 4; m++) {
+        const errCls = d.errors[m] > 2 ? 'err-highlight' : '';
+        html += '<td class="' + errCls + '">' + fmtNum(d.errors[m]) + '</td><td>' + fmtNum(d.counts[m]) + '</td><td>' + fmtPct(d.rates[m]) + '</td>';
+      }
+      html += '<td>' + fmtNum(d.totalErrors) + '</td><td>' + fmtNum(d.totalCount) + '</td>';
+      html += '<td>' + fmtPct(d.totalRate) + '</td>';
+      html += '<td class="' + (d.accuracy < 99.95 ? 'rate-warn' : 'rate-good') + '">' + d.accuracy + '%</td></tr>';
+    });
+  });
+
+  // Group total
+  const total = getGroupTotal();
+  html += '<tr class="total"><td class="bu-cell">集团</td><td class="role-cell">合计</td>';
+  for (let m = 0; m < 4; m++) {
+    html += '<td class="err-highlight">' + fmtNum(total.errors[m]) + '</td><td>' + fmtNum(total.counts[m]) + '</td><td>' + fmtPct(total.rates[m]) + '</td>';
+  }
+  html += '<td class="err-highlight">' + fmtNum(total.totalErrors) + '</td><td>' + fmtNum(total.totalCount) + '</td>';
+  html += '<td class="' + (total.totalRate > 0.05 ? 'rate-bad' : 'rate-good') + '">' + fmtPct(total.totalRate) + '</td>';
+  html += '<td class="' + (total.accuracy < 99.95 ? 'rate-warn' : 'rate-good') + '">' + total.accuracy + '%</td></tr>';
+
+  tbody.innerHTML = html;
+})();
+
+// ============= WINDOW RESIZE =============
+window.addEventListener('resize', function() {
+  Object.values(chartInstances).forEach(c => { try { c.resize(); } catch(e) {} });
+});
+</script>
+
+
+</body></html>
